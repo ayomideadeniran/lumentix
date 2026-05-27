@@ -283,7 +283,7 @@ export class TicketsService {
       throw new UnauthorizedException('Invalid ticket signature');
     }
 
-    const ticket = await this.ticketRepo.findOne({ where: { id: ticketId } });
+    const ticket = await this.getTicketWithEvent(ticketId);
     if (!ticket) throw new NotFoundException('Ticket not found');
 
     if (ticket.status === 'used') {
@@ -295,6 +295,32 @@ export class TicketsService {
 
     ticket.status = 'used';
     return this.ticketRepo.save(ticket);
+  }
+
+  async getTicketWithEvent(ticketId: string): Promise<{ id: string; eventId: string; status: string; vipTier?: string; event: Event } | null> {
+    const ticket = await this.ticketRepo.findOne({ 
+      where: { id: ticketId }, 
+      relations: ['event'] 
+    });
+    
+    if (!ticket) return null;
+    
+    // Ensure event is loaded
+    if (!ticket.event) {
+      const event = await this.eventRepo.findOne({ where: { id: ticket.eventId } });
+      if (!event) return null;
+      
+      // Create a new object with both ticket and event data
+      return {
+        ...ticket,
+        event,
+      };
+    }
+    
+    return {
+      ...ticket,
+      event: ticket.event,
+    };
   }
 
   // ── Resale / marketplace ──────────────────────────────────────────────────
